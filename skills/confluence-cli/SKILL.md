@@ -23,8 +23,8 @@ confluence-cli doctor
   shared `ATLASSIAN_SITE_NAME`, `ATLASSIAN_USER_EMAIL`, `ATLASSIAN_API_TOKEN`)
   in the environment or in a `.env` file in the working directory. Never ask
   the user to paste the token into the chat, and never print it.
-- `command not found` → install: `npm install -g @phuc-nt/confluence-cli`
-  (or `npm install -g github:phuc-nt/confluence-cli`), Node 20+.
+- `command not found` → install: `npm install -g github:phuc-nt/confluence-cli`,
+  Node 20+. Not on the npm registry.
 
 ## 2. Call a tool
 
@@ -108,10 +108,60 @@ content the user did not author in this session, state what will change and
 get the user's confirmation. Read tools (`get*`, `search*`) need no
 confirmation.
 
-## 5. Tool index
+## 5. Picking the right tool
 
 Parameter tables for all tools: [reference/tools.md](reference/tools.md).
 When a table is not enough, `confluence-cli describe <tool>` is authoritative.
+
+**Never guess a tool name or a parameter name.** Unlike an MCP server, this CLI
+does not push its tool list into your context — ask it, and the answer is
+authoritative:
+
+```bash
+confluence-cli tools --json      # every tool: name, summary, required[], optional[]
+confluence-cli describe <tool>   # one tool: full description + JSON Schema
+```
+
+Start from the task, not from the tool name:
+
+| The user wants | Tool |
+|---|---|
+| Find a page by text, title or space | `searchPages` |
+| Read a page | `getPageContent` (Markdown; `--raw` for storage XHTML) |
+| The page's edit history | `getPageVersions` |
+| List spaces / find a space id | `getSpaces` |
+| Write a new page | `createPage` (needs `spaceId`, not a space key) |
+| Change an existing page | `getPageContent` for the version, then `updatePage` |
+| Read or write comments | `getPageComments`, `addComment`, `updateComment` |
+| Remove a page or comment | `deletePage`, `deleteComment` — see below |
+
+Pairs that are easy to confuse:
+
+- `createPage` takes a **`spaceId`** (a number from `getSpaces`), while
+  `searchPages` filters by **`spaceKey`** (e.g. `DOCS`). They are not
+  interchangeable.
+- `updatePage` **replaces the whole body**. To edit rather than replace, read
+  with `--raw`, change that text, and send it back; reading Markdown and writing
+  it back drops macros and layout the converter does not represent.
+- `updatePage` and `updateComment` need the object's **current** `version`. A
+  stale one returns `CONFLICT` — re-read the version and retry once.
+- `deletePage --draft` keeps the page as a draft; without `--draft` it goes to
+  the trash.
+
+## 5b. Destructive tools
+
+Before `deletePage` or `deleteComment`, and before any `updatePage` that
+replaces content the user did not author in this session:
+
+1. Name the exact object (page id **and** title, or the comment and its page)
+   and what is lost — a page takes its comments and attachments with it.
+2. Get the user's explicit confirmation for that object.
+3. Prefer the non-destructive route when it fits: `deletePage --draft` over a
+   trash delete, an edit over a wholesale body replacement.
+
+Never delete objects the user did not name, never delete in a loop over search
+results, and never delete to "clean up" something you created unless the user
+asked for that. Read tools (`get*`, `search*`) need no confirmation.
 
 ## 6. When MCP becomes available
 

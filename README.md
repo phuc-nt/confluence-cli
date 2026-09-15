@@ -9,10 +9,11 @@ The tool names, parameters and response envelope are the same as the [Confluence
 Node.js 20 or newer.
 
 ```bash
-npm install -g @phuc-nt/confluence-cli
-# or straight from GitHub
 npm install -g github:phuc-nt/confluence-cli
 ```
+
+Not published to the npm registry; install from GitHub. The package builds
+itself on install, so no extra build step is needed.
 
 ## Credentials
 
@@ -71,10 +72,14 @@ Parameter tables: [skills/confluence-cli/reference/tools.md](skills/confluence-c
 [`skills/confluence-cli/`](skills/confluence-cli/) follows the Agent Skills format (`SKILL.md` plus a generated reference). Copy it into the project the agent works in:
 
 ```bash
-SRC="$(npm root -g)/@phuc-nt/confluence-cli/skills/confluence-cli"
+SRC="$(dirname "$(dirname "$(readlink -f "$(command -v confluence-cli)")")")/skills/confluence-cli"
 cp -r "$SRC" .claude/skills/      # Claude Code
 cp -r "$SRC" .kiro/skills/        # Kiro
 ```
+
+That resolves the installed package from the `confluence-cli` command itself, so
+it works however the package was installed. From a clone, copy
+`skills/confluence-cli/` directly.
 
 The skill tells the agent to run `doctor` once, how to pass parameters, how to react to each error code, and to confirm with the user before destructive calls.
 
