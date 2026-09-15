@@ -1,7 +1,7 @@
 {
   "name": "@phuc-nt/confluence-cli",
   "version": "0.1.0",
-  "description": "Confluence Cloud from the shell for AI agent harnesses that cannot load MCP servers: 11 tools, one JSON envelope, Atlassian API token, bundled agent skill",
+  "description": "Confluence Cloud from the shell for AI agent harnesses that cannot load MCP servers: 11 tools, Markdown page bodies, one JSON envelope, bundled agent skill",
   "type": "module",
   "bin": {
     "confluence-cli": "dist/cli.js"
@@ -39,6 +39,9 @@
     "cli",
     "agent",
     "skill",
+    "agent-skills",
+    "ai-agents",
+    "mcp-alternative",
     "claude-code",
     "kiro"
   ],
