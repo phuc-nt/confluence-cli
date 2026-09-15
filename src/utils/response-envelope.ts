@@ -85,7 +85,11 @@ export function failFromError(
   hints: Partial<Record<ErrorCode, string>> = {}
 ): McpToolResult {
   const anyErr = error as any;
-  const status: number | undefined = anyErr?.response?.status;
+  // ConfluenceApiError carries the status flat on the error; axios puts it
+  // under `response`. Read both, or a 409 from the API client arrives here
+  // looking like an unknown failure.
+  const status: number | undefined =
+    typeof anyErr?.status === 'number' ? anyErr.status : anyErr?.response?.status;
   const rawMessage: string =
     anyErr?.response?.data?.message || anyErr?.message || 'Unknown error';
 
@@ -102,6 +106,8 @@ export function failFromError(
   else if (/\b401\b|unauthorized|authentication failed/i.test(rawMessage)) code = ErrorCodes.AUTH_FAILED;
   else if (/\b403\b|forbidden|permission|access denied/i.test(rawMessage)) code = ErrorCodes.PERMISSION_DENIED;
   else if (/\b404\b|not found/i.test(rawMessage)) code = ErrorCodes.NOT_FOUND;
+  else if (/\b409\b|conflict|version must be incremented/i.test(rawMessage))
+    code = ErrorCodes.CONFLICT;
   else if (/\b429\b|rate limit/i.test(rawMessage)) code = ErrorCodes.RATE_LIMITED;
   else if (/network|ECONNREFUSED|ETIMEDOUT|ENOTFOUND/i.test(rawMessage))
     code = ErrorCodes.NETWORK_ERROR;
