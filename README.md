@@ -12,8 +12,19 @@ Node.js 20 or newer.
 npm install -g github:phuc-nt/confluence-cli
 ```
 
-Not published to the npm registry; install from GitHub. The package builds
-itself on install, so no extra build step is needed.
+Not published to the npm registry; install from GitHub.
+
+The bundle is built during install by the package's `prepare` script, so nothing
+extra is needed — **unless install scripts are blocked** (`npm install
+--ignore-scripts`, or a locked-down corporate npm config). Then the package
+arrives without `dist/` and the `confluence-cli` command will not exist. Build it
+from a clone instead:
+
+```bash
+git clone https://github.com/phuc-nt/confluence-cli && cd confluence-cli
+npm install --ignore-scripts && npm run build
+npm link                   # or call dist/cli.js directly
+```
 
 ## Credentials
 

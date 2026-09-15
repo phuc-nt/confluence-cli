@@ -24,7 +24,11 @@ confluence-cli doctor
   in the environment or in a `.env` file in the working directory. Never ask
   the user to paste the token into the chat, and never print it.
 - `command not found` → install: `npm install -g github:phuc-nt/confluence-cli`,
-  Node 20+. Not on the npm registry.
+  Node 20+. Not on the npm registry. If that install runs with scripts blocked
+  (`--ignore-scripts`, or a locked-down npm config) the bundle is never built and
+  the command still will not exist — then clone the repo and run `npm install
+  --ignore-scripts && npm run build`. Report this to the user rather than
+  retrying the same install.
 
 ## 2. Call a tool
 
