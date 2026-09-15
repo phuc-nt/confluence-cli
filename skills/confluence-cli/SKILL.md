@@ -1,0 +1,110 @@
+---
+name: confluence-cli
+description: Read, search, create, update and comment on Confluence Cloud pages from the shell with the `confluence-cli` command (Atlassian API token, no MCP needed). Use when the user asks to look up, write, or update Confluence pages, spaces, or comments, or to publish a document to Confluence.
+---
+
+# Confluence via `confluence-cli`
+
+`confluence-cli` is a shell command with 11 Confluence Cloud tools, the same
+tools, parameters and response shape as the Confluence Cloud MCP server. Every
+call prints one JSON envelope on stdout; nothing else goes there. Logs go to
+stderr. Use it exactly as you would use the MCP tools of the same names.
+
+## 1. Check the setup once per session
+
+```bash
+confluence-cli doctor
+```
+
+- `ok: true` → `data.user.displayName` is the account you act as, `data.site`
+  the site. Continue.
+- exit 2 with `AUTH_FAILED` and "Missing credentials" → ask the user to set
+  `CONFLUENCE_SITE_NAME`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN` (or the
+  shared `ATLASSIAN_SITE_NAME`, `ATLASSIAN_USER_EMAIL`, `ATLASSIAN_API_TOKEN`)
+  in the environment or in a `.env` file in the working directory. Never ask
+  the user to paste the token into the chat, and never print it.
+- `command not found` → install: `npm install -g @phuc-nt/confluence-cli`
+  (or `npm install -g github:phuc-nt/confluence-cli`), Node 20+.
+
+## 2. Call a tool
+
+```bash
+confluence-cli <tool> --key value --key2 value2      # flags, coerced to the schema type
+confluence-cli <tool> --json '{"key": "value"}'      # or one JSON object
+confluence-cli <tool> --file params.json              # or a file / --stdin
+confluence-cli describe <tool>                        # full description + JSON Schema
+confluence-cli tools                                  # all tools, one line each
+```
+
+Rules:
+- Long or multi-line `content` → write it to a file and use `--file`, or
+  `--json` built by a script. Do not fight shell quoting.
+- Exit code: `0` success, `1` the tool returned `ok: false`, `2` wrong
+  parameters or credentials. Always read `error.code` and `error.hint`.
+- Unknown flag or wrong type is refused before any API call; run
+  `describe <tool>` and retry. Do not guess parameter names.
+
+## 3. Response envelope
+
+```jsonc
+{ "ok": true,  "data": { ... }, "meta": { "tool": "getPageContent", ... } }
+{ "ok": false, "error": { "code": "NOT_FOUND", "message": "...", "hint": "..." }, "meta": { "tool": "..." } }
+```
+
+Codes: `AUTH_FAILED`, `PERMISSION_DENIED`, `INVALID_INPUT`, `NOT_FOUND`,
+`CONFLICT`, `RATE_LIMITED`, `UPSTREAM_ERROR`, `NETWORK_ERROR`, `UNKNOWN_ERROR`.
+On `CONFLICT` from `updatePage`/`updateComment`: re-read the current version and
+retry once with it. On `RATE_LIMITED`: wait, then retry once. On `AUTH_FAILED`
+or `PERMISSION_DENIED`: stop and report; do not retry.
+
+## 4. Workflows
+
+Find a page, then read it:
+```bash
+confluence-cli searchPages --query "release checklist" --spaceKey DOCS --limit 5
+confluence-cli getPageContent --pageId 123456            # data.version is needed for updates
+```
+
+Create a page (Markdown is converted to Confluence storage format automatically):
+```bash
+confluence-cli getSpaces --limit 50                      # pick data.spaces[].id
+confluence-cli createPage --spaceId 65846 --title "Design: Login" --file page.json
+# page.json: {"content": "# Heading\n\nBody in **Markdown**..."}  (parentId optional)
+```
+
+Update a page safely (optimistic locking):
+```bash
+confluence-cli getPageContent --pageId 123456            # note data.version
+confluence-cli updatePage --pageId 123456 --version 7 --title "New title" --file body.json
+```
+Content in the file replaces the whole body; pass only `--title` to rename.
+
+Comments:
+```bash
+confluence-cli getPageComments --pageId 123456 --limit 50
+confluence-cli addComment --pageId 123456 --content "Reviewed, two questions inline."
+confluence-cli addComment --pageId 123456 --parentId 98765 --content "Reply text"
+confluence-cli updateComment --commentId 98765 --version 2 --content "Edited text"
+```
+
+History and deletion:
+```bash
+confluence-cli getPageVersions --pageId 123456 --limit 10
+confluence-cli deletePage --pageId 123456 --draft        # keep as draft; omit --draft to delete
+confluence-cli deleteComment --commentId 98765
+```
+
+Before `deletePage`, `deleteComment`, or any `updatePage` that replaces
+content the user did not author in this session, state what will change and
+get the user's confirmation. Read tools (`get*`, `search*`) need no
+confirmation.
+
+## 5. Tool index
+
+Parameter tables for all tools: [reference/tools.md](reference/tools.md).
+When a table is not enough, `confluence-cli describe <tool>` is authoritative.
+
+## 6. When MCP becomes available
+
+The MCP server (`confluence-cloud-mcp-server`) registers the same tool names,
+parameters and envelope. Switch the transport; keep the workflow above as is.
