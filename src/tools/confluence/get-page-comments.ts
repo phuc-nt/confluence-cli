@@ -3,6 +3,7 @@ import type { ToolRegistrar } from '../../utils/tool-registrar.js';
 import { ConfluenceApiClient } from '../../utils/confluence-api.js';
 import { Logger } from '../../utils/logger.js';
 import { ok, failFromError, ErrorCodes } from '../../utils/response-envelope.js';
+import { storageToMarkdown } from '../../utils/storage-to-markdown.js';
 
 const logger = new Logger('GetPageCommentsTool');
 
@@ -16,6 +17,13 @@ export const getPageCommentsSchema = z.object({
     .default(25)
     .describe('Maximum number of comments to return (default: 25, max: 100)'),
   cursor: z.string().optional().describe('Pagination cursor for retrieving next batch of comments (optional)'),
+  raw: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'Return comment bodies as untouched Confluence storage format (XHTML) instead of Markdown.'
+    ),
 });
 
 type GetPageCommentsParams = z.infer<typeof getPageCommentsSchema>;
@@ -23,28 +31,31 @@ type GetPageCommentsParams = z.infer<typeof getPageCommentsSchema>;
 export function registerGetPageCommentsTool(server: ToolRegistrar, apiClient: ConfluenceApiClient) {
   server.tool(
     'getPageComments',
-    'Retrieve all footer comments for a specific Confluence page. Returns comment IDs, content, authors, and creation dates for analysis and management. Returns {ok, data, meta} JSON.',
+    'Retrieve all footer comments for a specific Confluence page. Returns comment IDs, content, authors, and creation dates for analysis and management. Comment bodies are returned as Markdown; pass raw=true for the original Confluence storage format. Returns {ok, data, meta} JSON.',
     getPageCommentsSchema.shape,
     async (params: GetPageCommentsParams) => {
       const TOOL = 'getPageComments';
       try {
         logger.info('Getting page comments');
 
-        const { pageId, limit, cursor } = params;
+        const { pageId, limit, cursor, raw } = params;
 
         const commentsData = await apiClient.getPageComments(pageId, limit, cursor);
 
         logger.info(`Retrieved ${commentsData.size} comments for page ${pageId}`);
 
-        const comments = (commentsData.results || []).map((comment: any) => ({
-          id: comment.id,
-          version: comment.version?.number ?? 1,
-          authorId: comment.authorId ?? comment.version?.authorId ?? null,
-          createdAt: comment.createdAt ?? comment.version?.createdAt ?? null,
-          parentCommentId: comment.parentCommentId ?? null,
-          body: comment.body?.storage?.value ?? null,
-          webui: comment._links?.webui ?? null,
-        }));
+        const comments = (commentsData.results || []).map((comment: any) => {
+          const storage = comment.body?.storage?.value ?? null;
+          return {
+            id: comment.id,
+            version: comment.version?.number ?? 1,
+            authorId: comment.authorId ?? comment.version?.authorId ?? null,
+            createdAt: comment.createdAt ?? comment.version?.createdAt ?? null,
+            parentCommentId: comment.parentCommentId ?? null,
+            body: storage === null || raw ? storage : storageToMarkdown(storage),
+            webui: comment._links?.webui ?? null,
+          };
+        });
 
         return ok(
           {

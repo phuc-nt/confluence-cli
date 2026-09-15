@@ -34,13 +34,16 @@ confluence-cli doctor      # live check: prints the acting account, the site and
 confluence-cli tools                                   # every tool, one line each
 confluence-cli describe searchPages                    # full description + JSON Schema
 confluence-cli searchPages --query "release" --spaceKey DOCS --limit 5
-confluence-cli getPageContent --pageId 123456
+confluence-cli getPageContent --pageId 123456                                 # body as Markdown
+confluence-cli getPageContent --pageId 123456 --raw                           # body as storage format
 confluence-cli createPage --spaceId 65846 --title "Notes" --file page.json    # {"content": "# Markdown..."}
 confluence-cli updatePage --json '{"pageId":"123456","version":7,"title":"Renamed"}'
 echo '{"pageId":"123456"}' | confluence-cli getPageComments --stdin
 ```
 
 Parameters can be given as flags (`--key value`, `--key=value`, `--flag`), as one JSON object (`--json '{...}'`, `--file params.json`, `--stdin`), or mixed. Flags are coerced to the type the tool's schema declares. Page content written as Markdown is converted to Confluence storage format.
+
+Responses are written for an agent to read, not for a browser to render. Page and comment bodies come back as Markdown with HTML entities decoded, roughly a third smaller than the storage format they replace; `--raw` returns the original XHTML for when a body must be written back verbatim. Fields the API could not fill are omitted rather than returned as `null`.
 
 Every call prints exactly one envelope on stdout. Logs go to stderr only (`LOG_LEVEL=debug|info|warn|error`, default `warn`).
 

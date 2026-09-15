@@ -65,29 +65,30 @@ export function registerSearchPagesTool(server: ToolRegistrar, apiClient: Conflu
 
         logger.info(`Search completed via ${searchResults.searchMethod}: found ${searchResults.size} results`);
 
-        const results = searchResults.results.map((page: any) => ({
-          id: page.id,
-          title: page.title,
-          type: page.type,
-          spaceKey: page.spaceKey ?? null,
-          spaceName: page.spaceName ?? null,
-          lastModified: page.lastModified ?? null,
-          author: page.author ?? null,
-          excerpt: page.excerpt ?? null,
-          webui: page.url ?? null,
-        }));
+        // Fields the search endpoint did not return are omitted rather than
+        // sent as nulls: a key that is always present but always empty reads
+        // as "this page has no space", which is not what it means.
+        const results = searchResults.results.map((page: any) => {
+          const row: Record<string, unknown> = {
+            id: page.id,
+            title: page.title,
+            type: page.type,
+          };
+          if (page.spaceKey) row.spaceKey = page.spaceKey;
+          if (page.spaceName) row.spaceName = page.spaceName;
+          if (page.lastModified) row.lastModified = page.lastModified;
+          if (page.author?.displayName) row.author = page.author;
+          if (page.excerpt) row.excerpt = page.excerpt;
+          if (page.url) row.webui = page.url;
+          return row;
+        });
 
         return ok(
           { results },
           {
             tool: TOOL,
             count: results.length,
-            limit,
-            sortBy,
             searchMethod: searchResults.searchMethod ?? null,
-            query: query ?? null,
-            title: title ?? null,
-            spaceKey: effectiveSpaceKey ?? null,
           }
         );
       } catch (error) {

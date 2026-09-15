@@ -348,10 +348,14 @@ export class ConfluenceApiClient {
     
     const cql = cqlParts.join(' AND ');
     
+    // Without the expansions the search endpoint returns only ids and titles,
+    // so every result would come back with a null space and an "Unknown"
+    // author.
     const queryParams = new URLSearchParams({
       cql: cql,
       limit: (params.limit || 25).toString(),
-      start: '0'
+      start: '0',
+      expand: 'content.space,content.version,space'
     });
     
     // Use v1 client for search endpoint
@@ -394,23 +398,25 @@ export class ConfluenceApiClient {
   }
 
   private transformCQLResult(result: any): any {
+    // The space and the last editor live under `content` once expanded; the
+    // top-level copies are only present on some result types.
+    const space = result.content?.space ?? result.space;
+    const by = result.content?.version?.by;
     return {
       id: result.content?.id || result.id,
       title: result.title || result.content?.title,
       type: result.content?.type || 'page',
-      spaceKey: result.space?.key,
-      spaceName: result.space?.name,
+      spaceKey: space?.key,
+      spaceName: space?.name,
       url: result.url || result._links?.webui,
       excerpt: result.excerpt || '',
       lastModified: result.lastModified || result.content?.version?.when,
-      author: {
-        displayName: result.content?.version?.by?.displayName || 'Unknown',
-        accountId: result.content?.version?.by?.accountId
-      }
+      author: by ? { displayName: by.displayName, accountId: by.accountId } : null
     };
   }
 
   private transformV1ContentResult(result: any): any {
+    const by = result.version?.by;
     return {
       id: result.id,
       title: result.title,
@@ -419,10 +425,7 @@ export class ConfluenceApiClient {
       spaceName: result.space?.name,
       url: result._links?.webui,
       lastModified: result.version?.when,
-      author: {
-        displayName: result.version?.by?.displayName || 'Unknown',
-        accountId: result.version?.by?.accountId
-      }
+      author: by ? { displayName: by.displayName, accountId: by.accountId } : null
     };
   }
 }

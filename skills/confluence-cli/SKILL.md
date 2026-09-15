@@ -63,7 +63,14 @@ Find a page, then read it:
 ```bash
 confluence-cli searchPages --query "release checklist" --spaceKey DOCS --limit 5
 confluence-cli getPageContent --pageId 123456            # data.version is needed for updates
+confluence-cli getPageContent --pageId 123456 --raw      # original storage format (XHTML)
 ```
+
+`data.body` is Markdown (`data.representation` says `markdown`): headings,
+lists, tables, links and code blocks, with HTML entities decoded. Read it as
+you would any Markdown. Use `--raw` only when the body must survive a
+round-trip unchanged — reading Markdown and writing it back drops macros and
+layout the converter does not represent.
 
 Create a page (Markdown is converted to Confluence storage format automatically):
 ```bash
@@ -78,8 +85,10 @@ confluence-cli getPageContent --pageId 123456            # note data.version
 confluence-cli updatePage --pageId 123456 --version 7 --title "New title" --file body.json
 ```
 Content in the file replaces the whole body; pass only `--title` to rename.
+To edit an existing body rather than replace it, read it with `--raw`, change
+that, and send it back — the storage format passes through untouched.
 
-Comments:
+Comments (bodies are Markdown, `--raw` for storage format):
 ```bash
 confluence-cli getPageComments --pageId 123456 --limit 50
 confluence-cli addComment --pageId 123456 --content "Reviewed, two questions inline."
